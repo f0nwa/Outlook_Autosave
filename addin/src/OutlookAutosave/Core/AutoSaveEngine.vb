@@ -27,8 +27,14 @@ Namespace Core
         Private Const IndexFileName As String = "autosave.index"
         Private Const LogFileName As String = "autosave.log"
 
-        ' VBA писал индекс и лог в кодировке ANSI системы; сохраняем совместимость с уже существующими файлами.
-        Private ReadOnly FileEncoding As Encoding = Encoding.Default
+        ' VBA-версия писала индекс и лог в кодировке ANSI системы. В ANSI теряются символы вне кодовой страницы
+        ' (например, эмодзи в теме письма), и ключи индекса перестают совпадать с записанными — вложение
+        ' сохраняется повторно. Поэтому файлы пишутся в UTF-8 с BOM, а старые ANSI-файлы один раз переводятся
+        ' в UTF-8 (см. EnsureUtf8File).
+        Private ReadOnly LegacyFileEncoding As Encoding = Encoding.Default
+        Private ReadOnly FileEncoding As Encoding = New UTF8Encoding(True)
+        ''' <summary>Файлы индекса и лога, которые уже проверены и записаны в UTF-8.</summary>
+        Private ReadOnly _utf8Files As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
 
         Private _timer As System.Windows.Forms.Timer
         Private _isRunning As Boolean
@@ -497,14 +503,24 @@ Namespace Core
                         If folder Is Nothing Then
                             ' Отметка папки не меняется: когда папка снова станет доступна, она догонит пропущенное.
                             Trace.WriteLine("OutlookAutosave: skipped missing rule source folder: " & entry.Key)
+                            KeepFolderProgress(progress, entry.Key, fallbackSince)
+                            Continue For
+                        End If
+
+                        Dim folderProgress As DateTime = entry.Value
+                        Dim completed As Boolean = True
+                        Dim failed As Boolean = False
+                        savedCount += SaveFromFolderSince(folder, entry.Value, runStarted, checkedCount, rules, entry.Key, folderProgress, completed, failed)
+
+                        If failed Then
+                            ' Папку не удалось просмотреть: отметка остается прежней, чтобы следующий прогон
+                            ' проверил ее с того же места, а не с текущего времени.
+                            KeepFolderProgress(progress, entry.Key, fallbackSince)
                             Continue For
                         End If
 
                         processedFolders += 1
 
-                        Dim folderProgress As DateTime = entry.Value
-                        Dim completed As Boolean = True
-                        savedCount += SaveFromFolderSince(folder, entry.Value, runStarted, checkedCount, rules, entry.Key, folderProgress, completed)
                         If completed Then
                             progress(entry.Key) = New FolderProgress With {.DoneUntil = runStarted}
                         Else
@@ -629,6 +645,17 @@ Namespace Core
             SettingsStore.SetValue(SettingsStore.KeyFolderProgress, String.Empty)
         End Sub
 
+        ''' <summary>
+        ''' Сохраняет текущую отметку папки, которую в этом прогоне не удалось обработать. Если отметки еще нет,
+        ''' записывает общую отметку прошлого прогона: иначе после успешного прогона других папок общая отметка
+        ''' сдвинется, и письма этой папки за пропущенное время не будут проверены.
+        ''' </summary>
+        Private Sub KeepFolderProgress(progress As Dictionary(Of String, FolderProgress), folderPath As String, fallback As DateTime)
+            If Not progress.ContainsKey(folderPath) Then
+                progress(folderPath) = New FolderProgress With {.DoneUntil = fallback}
+            End If
+        End Sub
+
         Private Function GetDoneUntil(progress As Dictionary(Of String, FolderProgress), folderPath As String, fallback As DateTime) As DateTime
             Dim state As FolderProgress = Nothing
             Return If(progress.TryGetValue(folderPath, state), state.DoneUntil, fallback)
@@ -669,10 +696,11 @@ Namespace Core
         ''' <summary>
         ''' Обрабатывает письма папки с временем получения в (since, runStarted], от старых к новым.
         ''' completed = False, если достигнут лимит; тогда progress — до какого времени письма обработаны.
+        ''' failed = True, если папку не удалось просмотреть (ошибка Outlook); отметку папки тогда менять нельзя.
         ''' </summary>
         Private Function SaveFromFolderSince(folder As Object, since As DateTime, runStarted As DateTime, ByRef checkedCount As Integer,
                                              rules As List(Of SortRule), sourcePath As String,
-                                             ByRef progress As DateTime, ByRef completed As Boolean) As Integer
+                                             ByRef progress As DateTime, ByRef completed As Boolean, ByRef failed As Boolean) As Integer
             Dim savedCount As Integer = 0
             Dim allItems As Object = Nothing
             Dim items As Object = Nothing
@@ -680,6 +708,7 @@ Namespace Core
 
             progress = since
             completed = True
+            failed = False
 
             Try
                 allItems = folder.Items
@@ -736,6 +765,7 @@ Namespace Core
                 Loop
             Catch ex As Exception
                 Trace.WriteLine("OutlookAutosave: skipped folder after error: " & ex.Message)
+                failed = True
             Finally
                 If items IsNot allItems Then
                     OutlookHost.Release(items)
@@ -744,7 +774,7 @@ Namespace Core
                 OutlookHost.Release(allItems)
             End Try
 
-            If Not completed Then
+            If Not completed AndAlso Not failed Then
                 ' Письма с той же секундой получения, что и последнее обработанное, могли остаться
                 ' необработанными, поэтому отметка ставится на секунду раньше. Повторно обработанные
                 ' вложения отсеиваются индексом.
@@ -980,7 +1010,7 @@ Namespace Core
 
             Try
                 If File.Exists(indexPath) Then
-                    For Each line In File.ReadAllLines(indexPath, FileEncoding)
+                    For Each line In File.ReadAllLines(indexPath, EnsureUtf8File(indexPath))
                         Dim tabPos = line.IndexOf(ControlChars.Tab)
 
                         If tabPos > 0 Then
@@ -1033,7 +1063,7 @@ Namespace Core
                 End If
 
                 Dim indexPath = TextUtil.EnsureTrailingBackslash(targetFolder) & IndexFileName
-                File.AppendAllText(indexPath, indexKey & ControlChars.Tab & savedFilePath & vbCrLf, FileEncoding)
+                File.AppendAllText(indexPath, indexKey & ControlChars.Tab & savedFilePath & vbCrLf, EnsureUtf8File(indexPath))
                 entries(indexKey) = savedFilePath
 
                 Try
@@ -1064,13 +1094,63 @@ Namespace Core
                     TextUtil.SingleLineField(targetFilePath)
                 }
 
-                File.AppendAllText(TextUtil.EnsureTrailingBackslash(targetFolder) & LogFileName,
-                                   String.Join(" | ", fields) & vbCrLf, FileEncoding)
+                Dim logPath = TextUtil.EnsureTrailingBackslash(targetFolder) & LogFileName
+                File.AppendAllText(logPath, String.Join(" | ", fields) & vbCrLf, EnsureUtf8File(logPath))
             Catch ex As Exception
                 ' Ошибки записи лога не должны останавливать автосохранение.
                 Trace.WriteLine("OutlookAutosave: log write failed: " & ex.Message)
             End Try
         End Sub
+
+        ''' <summary>
+        ''' Кодировка для чтения и дописывания индекса или лога. Файл в ANSI (от VBA-версии или прежних версий
+        ''' надстройки) один раз переписывается в UTF-8 с BOM. Если перевести не удалось, файл остается в ANSI
+        ''' и дописывается в ANSI, чтобы не смешивать кодировки в одном файле.
+        ''' </summary>
+        Private Function EnsureUtf8File(filePath As String) As Encoding
+            If _utf8Files.Contains(filePath) Then
+                Return FileEncoding
+            End If
+
+            Try
+                If File.Exists(filePath) AndAlso Not HasUtf8Bom(filePath) Then
+                    Dim text = File.ReadAllText(filePath, LegacyFileEncoding)
+                    Dim attributes = File.GetAttributes(filePath)
+
+                    ' Скрытый файл нельзя перезаписать, поэтому атрибут на время снимается.
+                    File.SetAttributes(filePath, attributes And Not FileAttributes.Hidden)
+
+                    Try
+                        File.WriteAllText(filePath, text, FileEncoding)
+                    Finally
+                        Try
+                            File.SetAttributes(filePath, attributes)
+                        Catch
+                        End Try
+                    End Try
+
+                    Trace.WriteLine("OutlookAutosave: converted to UTF-8: " & filePath)
+                End If
+
+                _utf8Files.Add(filePath)
+                Return FileEncoding
+            Catch ex As Exception
+                Trace.WriteLine("OutlookAutosave: UTF-8 conversion failed, keeping ANSI: " & filePath & ": " & ex.Message)
+                Return LegacyFileEncoding
+            End Try
+        End Function
+
+        ''' <summary>True, если файл начинается с UTF-8 BOM или пустой (в пустой файл BOM запишется при дописывании).</summary>
+        Private Function HasUtf8Bom(filePath As String) As Boolean
+            Using stream As New FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
+                If stream.Length = 0 Then
+                    Return True
+                End If
+
+                Dim preamble(2) As Byte
+                Return stream.Read(preamble, 0, 3) = 3 AndAlso preamble(0) = &HEF AndAlso preamble(1) = &HBB AndAlso preamble(2) = &HBF
+            End Using
+        End Function
 
 #End Region
 

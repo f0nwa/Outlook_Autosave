@@ -208,7 +208,11 @@ Namespace Core
             End Try
         End Function
 
-        ''' <summary>Ищет почтовую папку по пути Outlook: точное совпадение, затем по суффиксу пути без имени ящика.</summary>
+        ''' <summary>
+        ''' Ищет почтовую папку по пути Outlook: сначала точное совпадение во всех ящиках, затем по пути
+        ''' без имени ящика (если ящик переименован). Поиск без имени ящика срабатывает, только если такая
+        ''' папка единственная: иначе можно взять одноименную папку другого ящика.
+        ''' </summary>
         Friend Function FindMailFolderByPath(folderPath As String) As Object
             Dim normalized = TextUtil.NormalizeOutlookFolderPath(folderPath)
 
@@ -216,78 +220,113 @@ Namespace Core
                 Return Nothing
             End If
 
-            Dim suffix = TextUtil.GetOutlookFolderPathSuffix(normalized)
-
-            ' Быстрый путь: текущая открытая папка.
+            ' Быстрый путь: текущая открытая папка, только при точном совпадении пути.
             Dim current = GetCurrentFolder()
 
-            If current IsNot Nothing Then
-                Dim currentPath = TextUtil.NormalizeOutlookFolderPath(GetFolderPath(current))
+            If current IsNot Nothing AndAlso
+               String.Equals(TextUtil.NormalizeOutlookFolderPath(GetFolderPath(current)), normalized, StringComparison.CurrentCultureIgnoreCase) Then
+                Return current
+            End If
 
-                If String.Equals(currentPath, normalized, StringComparison.CurrentCultureIgnoreCase) OrElse
-                   (suffix.Length > 0 AndAlso TextUtil.EndsWithIgnoreCase(currentPath, suffix)) Then
-                    Return current
+            Dim roots = GetStoreRootFolders()
+
+            For Each root In roots
+                Dim found As New List(Of Object)()
+                FindUnder(root, normalized, False, found)
+
+                If found.Count > 0 Then
+                    Return found(0)
+                End If
+            Next
+
+            Dim suffix = TextUtil.GetOutlookFolderPathSuffix(normalized)
+
+            If suffix.Length > 0 Then
+                Dim matches As New List(Of Object)()
+
+                For Each root In roots
+                    FindUnder(root, suffix, True, matches)
+
+                    If matches.Count > 1 Then
+                        Exit For
+                    End If
+                Next
+
+                If matches.Count = 1 Then
+                    Trace.WriteLine("OutlookAutosave: source folder found without mailbox name: " & normalized & " -> " & GetFolderPath(matches(0)))
+                    Return matches(0)
+                End If
+
+                If matches.Count > 1 Then
+                    Trace.WriteLine("OutlookAutosave: source folder is ambiguous without mailbox name, skipped: " & normalized)
+                    Return Nothing
                 End If
             End If
 
-            Dim ns = GetNamespace()
-            Dim stores = ns.Stores
-
-            For pass As Integer = 0 To 1
-                If pass = 1 AndAlso suffix.Length = 0 Then
-                    Exit For
-                End If
-
-                For i As Integer = 1 To CInt(stores.Count)
-                    Dim root As Object = Nothing
-
-                    Try
-                        root = stores.Item(i).GetRootFolder()
-                    Catch
-                        root = Nothing
-                    End Try
-
-                    If root IsNot Nothing Then
-                        Dim found = FindUnder(root, If(pass = 0, normalized, suffix), pass = 1)
-
-                        If found IsNot Nothing Then
-                            Return found
-                        End If
-                    End If
-                Next
-            Next
-
-            Trace.WriteLine("OutlookAutosave: source folder not found by exact path or suffix: " & normalized)
+            Trace.WriteLine("OutlookAutosave: source folder not found: " & normalized)
             Return Nothing
         End Function
 
-        Private Function FindUnder(folder As Object, target As String, bySuffix As Boolean) As Object
+        Private Function GetStoreRootFolders() As List(Of Object)
+            Dim result As New List(Of Object)()
+            Dim stores = GetNamespace().Stores
+
+            For i As Integer = 1 To CInt(stores.Count)
+                Try
+                    Dim root As Object = stores.Item(i).GetRootFolder()
+
+                    If root IsNot Nothing Then
+                        result.Add(root)
+                    End If
+                Catch ex As Exception
+                    Trace.WriteLine("OutlookAutosave: store skipped: " & ex.Message)
+                End Try
+            Next
+
+            Return result
+        End Function
+
+        ''' <summary>
+        ''' Добавляет в found почтовые папки, совпадающие с target по полному пути или (bySuffix) по пути без имени ящика.
+        ''' Точный поиск останавливается на первой найденной папке, поиск без имени ящика — на второй
+        ''' (этого достаточно, чтобы понять, что совпадение неоднозначно).
+        ''' </summary>
+        Private Sub FindUnder(folder As Object, target As String, bySuffix As Boolean, found As List(Of Object))
             Try
                 If IsMailFolder(folder) Then
                     Dim path = TextUtil.NormalizeOutlookFolderPath(GetFolderPath(folder))
-                    Dim isMatch = If(bySuffix,
-                                     TextUtil.EndsWithIgnoreCase(path, target),
-                                     String.Equals(path, target, StringComparison.CurrentCultureIgnoreCase))
+                    Dim compared = If(bySuffix, TextUtil.GetOutlookFolderPathSuffix(path), path)
 
-                    If isMatch Then
-                        Return folder
+                    If String.Equals(compared, target, StringComparison.CurrentCultureIgnoreCase) Then
+                        found.Add(folder)
                     End If
                 End If
 
                 Dim children = folder.Folders
 
                 For i As Integer = 1 To CInt(children.Count)
-                    Dim found = FindUnder(children.Item(i), target, bySuffix)
-
-                    If found IsNot Nothing Then
-                        Return found
+                    If IsSearchDone(found, bySuffix) Then
+                        Return
                     End If
+
+                    Dim child As Object = Nothing
+
+                    Try
+                        child = children.Item(i)
+                    Catch ex As Exception
+                        Trace.WriteLine("OutlookAutosave: folder skipped: " & ex.Message)
+                        Continue For
+                    End Try
+
+                    FindUnder(child, target, bySuffix, found)
                 Next
             Catch ex As Exception
                 Trace.WriteLine("OutlookAutosave: folder search error: " & ex.Message)
             End Try
+        End Sub
 
-            Return Nothing
+        Private Function IsSearchDone(found As List(Of Object), bySuffix As Boolean) As Boolean
+            Return found.Count > If(bySuffix, 1, 0)
         End Function
 
     End Module

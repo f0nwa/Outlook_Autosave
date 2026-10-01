@@ -23,6 +23,9 @@ Public Class Connect
     Public Const ClassId As String = "6F0E8E54-3B7C-4E0B-9C51-2B7A3C1D5E10"
     Public Const ProgIdValue As String = "OutlookAutosave.Connect"
 
+    ''' <summary>ext_ConnectMode.ext_cm_AfterStartup: надстройка подключена после запуска Outlook.</summary>
+    Private Const ExtConnectModeAfterStartup As Integer = 0
+
     Public Sub New()
     End Sub
 
@@ -32,6 +35,12 @@ Public Class Connect
         Try
             OutlookHost.OutlookApp = Application
             AutoSaveEngine.Initialize()
+
+            ' Надстройку включили в окне "Надстройки COM" при уже запущенном Outlook:
+            ' OnStartupComplete в этом случае не вызывается, поэтому запускаемся сразу.
+            If ConnectMode = ExtConnectModeAfterStartup Then
+                AutoSaveEngine.Startup()
+            End If
         Catch ex As Exception
             Trace.WriteLine("OutlookAutosave: OnConnection failed: " & ex.ToString())
         End Try

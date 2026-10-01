@@ -298,24 +298,30 @@ Namespace UI
                 Return
             End If
 
+            UpdateRuleFromFields(index)
+        End Sub
+
+        ''' <summary>Заменяет правило index значениями полей. False — если поля некорректны или такое правило уже есть.</summary>
+        Private Function UpdateRuleFromFields(index As Integer) As Boolean
             Dim candidate = ReadRuleFromFields()
 
             If Not SortRuleStore.IsRuleDefinitionValid(candidate.Pattern, candidate.Target, candidate.Extensions, candidate.SourceFolder) Then
                 UiHelper.Info(Me, SortRuleStore.ValidationMessage)
-                Return
+                Return False
             End If
 
             Dim duplicateIndex = FindRuleIndex(candidate)
 
             If duplicateIndex >= 0 AndAlso duplicateIndex <> index Then
                 UiHelper.Info(Me, BuildDuplicateMessage(duplicateIndex))
-                Return
+                Return False
             End If
 
             candidate.Enabled = _rules(index).Enabled
             _rules(index) = candidate
             RefreshList(New Integer() {index})
-        End Sub
+            Return True
+        End Function
 
         Private Sub OnToggleActive(sender As Object, e As EventArgs)
             ToggleSelectedActive()
@@ -398,7 +404,7 @@ Namespace UI
         End Sub
 
         Private Sub OnSave(sender As Object, e As EventArgs)
-            If HasFieldValues() AndAlso Not UpsertFromFields(True) Then
+            If HasFieldValues() AndAlso Not ApplyFieldsBeforeSave() Then
                 Return
             End If
 
@@ -410,6 +416,47 @@ Namespace UI
                 UiHelper.ErrorBox(Me, "Не удалось сохранить правила: " & ex.Message)
             End Try
         End Sub
+
+        ''' <summary>
+        ''' Переносит в список то, что набрано в полях, перед сохранением. Если выбрано одно правило и поля
+        ''' отличаются от него, спрашивает: обновить это правило или добавить новое. Без вопроса измененное
+        ''' правило добавлялось бы рядом со старым. False — сохранение нужно прервать.
+        ''' </summary>
+        Private Function ApplyFieldsBeforeSave() As Boolean
+            Dim index = SingleSelectedIndex()
+
+            If index < 0 OrElse Not FieldsDifferFrom(_rules(index)) Then
+                Return UpsertFromFields(True)
+            End If
+
+            Dim answer = MessageBox.Show(Me,
+                "Поля отличаются от выбранного правила №" & (index + 1).ToString(CultureInfo.InvariantCulture) & "." & vbCrLf & vbCrLf &
+                "Да — обновить выбранное правило." & vbCrLf &
+                "Нет — добавить как новое правило." & vbCrLf &
+                "Отмена — вернуться к редактированию.",
+                "Сохранение правил", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1)
+
+            Select Case answer
+                Case System.Windows.Forms.DialogResult.Yes
+                    Return UpdateRuleFromFields(index)
+                Case System.Windows.Forms.DialogResult.No
+                    Return UpsertFromFields(True)
+                Case Else
+                    Return False
+            End Select
+        End Function
+
+        Private Function FieldsDifferFrom(rule As SortRule) As Boolean
+            Dim candidate = ReadRuleFromFields()
+
+            Return Not (String.Equals(candidate.Name, rule.Name, StringComparison.Ordinal) AndAlso
+                        String.Equals(candidate.Pattern, rule.Pattern, StringComparison.Ordinal) AndAlso
+                        String.Equals(candidate.Extensions, rule.Extensions, StringComparison.Ordinal) AndAlso
+                        String.Equals(candidate.Subject, rule.Subject, StringComparison.Ordinal) AndAlso
+                        String.Equals(candidate.Target, rule.Target, StringComparison.Ordinal) AndAlso
+                        String.Equals(candidate.SourceFolder, rule.SourceFolder, StringComparison.Ordinal) AndAlso
+                        candidate.ContinueToNextRules = rule.ContinueToNextRules)
+        End Function
 
 #End Region
 
