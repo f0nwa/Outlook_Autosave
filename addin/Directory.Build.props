@@ -1,0 +1,9 @@
+<Project>
+  <!-- Единая версия для надстройки и установщика. -->
+  <PropertyGroup>
+    <Version>2.0.0</Version>
+    <Company>f0nwa</Company>
+    <Product>Outlook Autosave</Product>
+    <Copyright>Copyright (c) 2026 f0nwa</Copyright>
+  </PropertyGroup>
+</Project>

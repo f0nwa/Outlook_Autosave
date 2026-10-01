@@ -1,0 +1,26 @@
+<Project Sdk="WixToolset.Sdk/5.0.2">
+
+  <!--
+    WiX Toolset v5 (лицензия MS-RL). Версия зафиксирована намеренно.
+    Сборка: dotnet build -c Release -p:Platform=x64   (нужен только .NET SDK, Visual Studio не нужна)
+    Перед сборкой установщика соберите надстройку: dotnet build ..\src\OutlookAutosave -c Release
+  -->
+
+  <PropertyGroup>
+    <Platform>x64</Platform>
+    <OutputType>Package</OutputType>
+    <OutputName>OutlookAutosave-$(Version)</OutputName>
+    <AddinDir Condition="'$(AddinDir)' == ''">$(MSBuildThisFileDirectory)..\src\OutlookAutosave\bin\$(Configuration)\net48\</AddinDir>
+    <LicenseFile Condition="'$(LicenseFile)' == ''">$(MSBuildThisFileDirectory)..\..\LICENSE</LicenseFile>
+    <DefineConstants>ProductVersion=$(Version);AddinDir=$(AddinDir);LicenseFile=$(LicenseFile)</DefineConstants>
+    <!-- Русский интерфейс мастера установки -->
+    <Cultures>ru-RU</Cultures>
+    <!-- ICE91: файлы ставятся в профиль пользователя — так и задумано для установки без прав администратора. -->
+    <SuppressIces>ICE91</SuppressIces>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="5.0.2" />
+  </ItemGroup>
+
+</Project>

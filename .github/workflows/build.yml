@@ -1,0 +1,89 @@
+name: build
+
+# Сборка MSI на каждый push в main и pull request.
+# Push тега вида v2.0.0 дополнительно публикует релиз на странице Releases.
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  msi:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Check tag matches version
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          [xml]$props = Get-Content addin/Directory.Build.props
+          $version = "$($props.Project.PropertyGroup.Version)".Trim()
+          $tag = "${{ github.ref_name }}".TrimStart('v')
+          if ($tag -ne $version) {
+            throw "Тег v$tag не совпадает с версией $version в addin/Directory.Build.props"
+          }
+
+      - name: Build add-in and MSI
+        shell: pwsh
+        run: ./addin/build.ps1 -Configuration Release
+
+      - name: SHA-256
+        shell: pwsh
+        run: |
+          Get-ChildItem addin/dist -Filter *.msi | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)" | Out-File -FilePath "$($_.FullName).sha256" -Encoding ascii -NoNewline
+            Write-Host "$hash  $($_.Name)"
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OutlookAutosave-msi
+          path: |
+            addin/dist/*.msi
+            addin/dist/*.sha256
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: msi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: OutlookAutosave-msi
+          path: dist
+
+      - name: Release notes from CHANGELOG
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '
+            $0 ~ "^## " { if (found) exit; if ($2 == v) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "В CHANGELOG.md нет раздела '## $version'" >&2
+            exit 1
+          fi
+          cat notes.md
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.msi dist/*.sha256 \
+            --title "Outlook Autosave ${GITHUB_REF_NAME#v}" \
+            --notes-file notes.md

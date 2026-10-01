@@ -1,0 +1,6 @@
+Вставь этот код в Microsoft Outlook Objects -> ThisOutlookSession.
+Не импортируй этот файл как VBA-модуль.
+
+Private Sub Application_Startup()
+    AutoSaveStartup
+End Sub

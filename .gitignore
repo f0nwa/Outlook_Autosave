@@ -1,0 +1,51 @@
+# Разрешающий (allowlist) .gitignore.
+# Игнорируется всё, кроме файлов, явно перечисленных ниже.
+# Добавляете в проект новый тип файла — разрешите его здесь.
+
+*
+!*/
+
+# Корень репозитория
+!/.gitignore
+!/.gitattributes
+!/LICENSE
+!/README.md
+!/CHANGELOG.md
+!/SECURITY.md
+
+# CI
+!/.github/workflows/*.yml
+
+# Надстройка: исходники, проект, ресурсы
+!/addin/Directory.Build.props
+!/addin/build.ps1
+!/addin/tools/*.ps1
+!/addin/src/**/*.vb
+!/addin/src/**/*.vbproj
+!/addin/src/**/Resources/*.ico
+
+# Установщик
+!/addin/installer/*.wxs
+!/addin/installer/*.wixproj
+!/addin/installer/assets/*.rtf
+!/addin/installer/assets/*.ico
+!/addin/installer/assets/*.bmp
+
+# Документация и картинки
+!/docs/*.md
+!/assets/logo/*.svg
+!/assets/logo/*.png
+!/assets/readme/*.svg
+!/assets/readme/*.png
+
+# VBA-версия
+!/vba/*.bas
+!/vba/*.frm
+!/vba/*.frx
+!/vba/README.md
+!/vba/ThisOutlookSession_template.txt
+
+# Результаты сборки не попадают в репозиторий никогда
+**/bin/
+**/obj/
+/addin/dist/

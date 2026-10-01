@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Установщик Outlook Autosave (WiX Toolset v5, MS-RL).
+  Пакет устанавливается для текущего пользователя без прав администратора:
+  файлы в %LOCALAPPDATA%\Programs\OutlookAutosave, регистрация COM и надстройки в HKCU.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <?define ProductName = "Outlook Autosave" ?>
+  <?define Manufacturer = "f0nwa" ?>
+  <?define ProgId = "OutlookAutosave.Connect" ?>
+  <?define ClassName = "OutlookAutosave.Connect" ?>
+  <?define Clsid = "{6F0E8E54-3B7C-4E0B-9C51-2B7A3C1D5E10}" ?>
+  <?define AssemblyVersion = "$(var.ProductVersion).0" ?>
+  <?define AssemblyFullName = "OutlookAutosave, Version=$(var.AssemblyVersion), Culture=neutral, PublicKeyToken=null" ?>
+
+  <Package Name="$(var.ProductName)"
+           Manufacturer="$(var.Manufacturer)"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="B6D60952-1540-4340-9AF5-EAF95DF76774"
+           Scope="perUser"
+           Language="1049"
+           Codepage="1251">
+
+    <SummaryInformation Description="$(var.ProductName) $(var.ProductVersion)" Manufacturer="$(var.Manufacturer)" Codepage="1251" />
+
+    <MajorUpgrade DowngradeErrorMessage="Уже установлена более новая версия [ProductName]." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Надстройке нужен .NET Framework 4.8 (встроен в Windows 10 1903+ и Windows 11). -->
+    <Property Id="NETFRAMEWORK4RELEASE">
+      <RegistrySearch Id="NetFramework4Release" Root="HKLM" Key="SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" Name="Release" Type="raw" />
+    </Property>
+    <Launch Condition='Installed OR (NETFRAMEWORK4RELEASE AND NETFRAMEWORK4RELEASE &gt;= "#528040")'
+            Message="Для [ProductName] требуется .NET Framework 4.8 или новее." />
+
+    <!-- ARPNOMODIFY=1 (нет кнопки «Изменить» в списке программ) задает сам WixUI_Minimal. -->
+
+    <!-- Значок в списке установленных программ -->
+    <Icon Id="AppIcon.ico" SourceFile="assets\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+
+    <!-- Мастер установки: приветствие с лицензией, ход установки, сообщение о завершении.
+         При тихой установке (msiexec /qn) окна не показываются. -->
+    <ui:WixUI Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="assets\License.rtf" />
+    <WixVariable Id="WixUIDialogBmp" Value="assets\dialog.bmp" />
+    <WixVariable Id="WixUIBannerBmp" Value="assets\banner.bmp" />
+    <Property Id="ARPURLINFOABOUT" Value="https://opensource.org/license/mit" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="ProgramsDir" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="OutlookAutosave" />
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="$(var.ProductName)" Level="1">
+      <ComponentRef Id="cmpAddinFiles" />
+      <ComponentRef Id="cmpOutlookAddin" />
+    </Feature>
+
+    <!-- Файлы надстройки и ее COM-регистрация в одном компоненте: CodeBase ссылается на файл DLL.
+         KeyPath в HKCU — обязательное условие для компонентов в профиле пользователя. -->
+    <Component Id="cmpAddinFiles" Directory="INSTALLFOLDER" Guid="38DE61B8-ED18-49DA-AFC8-5606D182190B" Bitness="always64">
+      <File Id="AddinDll" Source="$(var.AddinDir)OutlookAutosave.dll" KeyPath="no" />
+      <File Id="LicenseFile" Name="LICENSE.txt" Source="$(var.LicenseFile)" KeyPath="no" />
+      <RegistryValue Root="HKCU" Key="Software\$(var.Manufacturer)\OutlookAutosave" Name="InstallDir" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+      <RemoveFolder Id="rmInstallFolder" Directory="INSTALLFOLDER" On="uninstall" />
+      <RemoveFolder Id="rmProgramsDir" Directory="ProgramsDir" On="uninstall" />
+
+      <!-- COM-регистрация для 64-битного Outlook -->
+      <RegistryKey Root="HKCU" Key="Software\Classes\$(var.ProgId)" ForceDeleteOnUninstall="yes">
+        <RegistryValue Type="string" Value="$(var.ProgId)" />
+        <RegistryValue Key="CLSID" Type="string" Value="$(var.Clsid)" />
+      </RegistryKey>
+
+      <RegistryKey Root="HKCU" Key="Software\Classes\CLSID\$(var.Clsid)" ForceDeleteOnUninstall="yes">
+        <RegistryValue Type="string" Value="$(var.ClassName)" />
+        <RegistryValue Key="ProgId" Type="string" Value="$(var.ProgId)" />
+        <RegistryKey Key="Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" ForceCreateOnInstall="yes" />
+        <RegistryValue Key="InprocServer32" Type="string" Value="mscoree.dll" />
+        <RegistryValue Key="InprocServer32" Name="ThreadingModel" Type="string" Value="Both" />
+        <RegistryValue Key="InprocServer32" Name="Class" Type="string" Value="$(var.ClassName)" />
+        <RegistryValue Key="InprocServer32" Name="Assembly" Type="string" Value="$(var.AssemblyFullName)" />
+        <RegistryValue Key="InprocServer32" Name="RuntimeVersion" Type="string" Value="v4.0.30319" />
+        <RegistryValue Key="InprocServer32" Name="CodeBase" Type="string" Value="file:///[#AddinDll]" />
+        <RegistryValue Key="InprocServer32\$(var.AssemblyVersion)" Name="Class" Type="string" Value="$(var.ClassName)" />
+        <RegistryValue Key="InprocServer32\$(var.AssemblyVersion)" Name="Assembly" Type="string" Value="$(var.AssemblyFullName)" />
+        <RegistryValue Key="InprocServer32\$(var.AssemblyVersion)" Name="RuntimeVersion" Type="string" Value="v4.0.30319" />
+        <RegistryValue Key="InprocServer32\$(var.AssemblyVersion)" Name="CodeBase" Type="string" Value="file:///[#AddinDll]" />
+      </RegistryKey>
+
+      <!-- COM-регистрация для 32-битного Outlook: 32-битные процессы читают HKCU\Software\Classes\Wow6432Node\CLSID -->
+      <RegistryKey Root="HKCU" Key="Software\Classes\Wow6432Node\CLSID\$(var.Clsid)" ForceDeleteOnUninstall="yes">
+        <RegistryValue Type="string" Value="$(var.ClassName)" />
+        <RegistryValue Key="ProgId" Type="string" Value="$(var.ProgId)" />
+        <RegistryKey Key="Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" ForceCreateOnInstall="yes" />
+        <RegistryValue Key="InprocServer32" Type="string" Value="mscoree.dll" />
+        <RegistryValue Key="InprocServer32" Name="ThreadingModel" Type="string" Value="Both" />
+        <RegistryValue Key="InprocServer32" Name="Class" Type="string" Value="$(var.ClassName)" />
+        <RegistryValue Key="InprocServer32" Name="Assembly" Type="string" Value="$(var.AssemblyFullName)" />
+        <RegistryValue Key="InprocServer32" Name="RuntimeVersion" Type="string" Value="v4.0.30319" />
+        <RegistryValue Key="InprocServer32" Name="CodeBase" Type="string" Value="file:///[#AddinDll]" />
+        <RegistryValue Key="InprocServer32\$(var.AssemblyVersion)" Name="Class" Type="string" Value="$(var.ClassName)" />
+        <RegistryValue Key="InprocServer32\$(var.AssemblyVersion)" Name="Assembly" Type="string" Value="$(var.AssemblyFullName)" />
+        <RegistryValue Key="InprocServer32\$(var.AssemblyVersion)" Name="RuntimeVersion" Type="string" Value="v4.0.30319" />
+        <RegistryValue Key="InprocServer32\$(var.AssemblyVersion)" Name="CodeBase" Type="string" Value="file:///[#AddinDll]" />
+      </RegistryKey>
+    </Component>
+
+    <!-- Регистрация надстройки в Outlook (общая для 32 и 64 бит). -->
+    <Component Id="cmpOutlookAddin" Directory="INSTALLFOLDER" Guid="5C2B7E0A-9D41-4F3B-8E6A-1F7C2D9B4A63" Bitness="always64">
+      <RegistryKey Root="HKCU" Key="Software\Microsoft\Office\Outlook\Addins\$(var.ProgId)" ForceDeleteOnUninstall="yes">
+        <RegistryValue Name="FriendlyName" Type="string" Value="$(var.ProductName)" />
+        <RegistryValue Name="Description" Type="string" Value="Сохранение вложений из писем по правилам" />
+        <RegistryValue Name="LoadBehavior" Type="integer" Value="3" KeyPath="yes" />
+      </RegistryKey>
+      <!-- Не даем Outlook отключать надстройку из-за времени запуска CLR. -->
+      <RegistryValue Root="HKCU" Key="Software\Microsoft\Office\16.0\Outlook\Resiliency\DoNotDisableAddinList" Name="$(var.ProgId)" Type="integer" Value="1" />
+    </Component>
+
+  </Package>
+</Wix>

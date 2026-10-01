@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <OutputType>Library</OutputType>
+    <AssemblyName>OutlookAutosave</AssemblyName>
+    <RootNamespace>OutlookAutosave</RootNamespace>
+    <!-- AnyCPU: одна и та же DLL работает и в 32-битном, и в 64-битном Outlook. -->
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <MyType>Empty</MyType>
+    <OptionExplicit>On</OptionExplicit>
+    <OptionStrict>On</OptionStrict>
+    <OptionInfer>On</OptionInfer>
+    <OptionCompare>Binary</OptionCompare>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <Description>Надстройка Outlook для сохранения вложений по правилам</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\app.ico" LogicalName="OutlookAutosave.app.ico" />
+  </ItemGroup>
+
+</Project>
