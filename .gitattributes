@@ -1,10 +1,5 @@
 * text=auto
 
-# VBA-редактор ожидает CRLF при импорте модулей и форм
-*.bas text eol=crlf
-*.frm text eol=crlf
-*.frx binary
-
 # Исходники и скрипты Windows
 *.vb text eol=crlf
 *.vbproj text eol=crlf

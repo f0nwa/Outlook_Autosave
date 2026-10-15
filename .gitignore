@@ -38,14 +38,10 @@
 !/assets/readme/*.svg
 !/assets/readme/*.png
 
-# VBA-версия
-!/vba/*.bas
-!/vba/*.frm
-!/vba/*.frx
-!/vba/README.md
-!/vba/ThisOutlookSession_template.txt
-
 # Результаты сборки не попадают в репозиторий никогда
 **/bin/
 **/obj/
 /addin/dist/
+
+# Donate
+!/.github/FUNDING.yml

@@ -147,7 +147,7 @@ Namespace Core
         End Function
     End Class
 
-    ''' <summary>Чтение, нормализация и сохранение правил (перенос SortRulesSettingsCore.bas).</summary>
+    ''' <summary>Чтение, нормализация и сохранение правил (перенос из VBA-версии).</summary>
     Friend Module SortRuleStore
 
         Friend Const ValidationMessage As String =

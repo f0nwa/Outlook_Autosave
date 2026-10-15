@@ -228,7 +228,6 @@ Workflow GitHub Actions [`.github/workflows/build.yml`](.github/workflows/build.
 | `addin/build.ps1` | Сборка DLL и MSI |
 | `addin/tools/dev-register.ps1` | Регистрация для отладки без MSI |
 | `docs/usage.md` | Руководство пользователя |
-| `vba/` | Исходная VBA-версия 1.0.x, см. [vba/README.md](vba/README.md) |
 
 </details>
 

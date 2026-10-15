@@ -8,7 +8,7 @@ Imports System.Text
 
 Namespace Core
 
-    ''' <summary>Строковые и файловые утилиты, перенесенные из MainModule.bas.</summary>
+    ''' <summary>Строковые и файловые утилиты, перенесенные из VBA-версии.</summary>
     Friend Module TextUtil
 
         Friend Const StoredDateFormat As String = "yyyy-MM-dd HH:mm:ss"
