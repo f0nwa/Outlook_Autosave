@@ -9,7 +9,7 @@ Imports System.Text
 Namespace Core
 
     ''' <summary>
-    ''' Логика автосохранения и ручного сохранения вложений (перенос MainModule.bas).
+    ''' Логика автосохранения и ручного сохранения вложений (перенос из VBA-версии).
     ''' Все методы вызываются из главного потока Outlook.
     ''' </summary>
     Friend Module AutoSaveEngine
@@ -570,7 +570,7 @@ Namespace Core
                 Return True
             Catch ex As Exception
                 Trace.WriteLine("OutlookAutosave: run failed: " & ex.ToString())
-                _lastFailureMessage = "Автосохранение не включено: первый запуск завершился с ошибкой. " & ex.Message
+                _lastFailureMessage = "Автосохранение не включено: первый запуск завершился с ошибкой."
                 Return False
             Finally
                 _indexCache = Nothing

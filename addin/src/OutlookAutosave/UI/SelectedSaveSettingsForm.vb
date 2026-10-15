@@ -88,7 +88,7 @@ Namespace UI
                 Me.DialogResult = System.Windows.Forms.DialogResult.OK
                 Close()
             Catch ex As Exception
-                UiHelper.ErrorBox(Me, "Не удалось сохранить настройки: " & ex.Message)
+                UiHelper.ErrorBox(Me, "Не удалось сохранить настройки.", ex)
             End Try
         End Sub
 

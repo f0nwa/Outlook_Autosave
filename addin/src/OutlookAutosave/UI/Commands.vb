@@ -22,7 +22,7 @@ Namespace UI
                     form.ShowDialog(owner)
                 End Using
             Catch ex As Exception
-                UiHelper.ErrorBox(owner, "Не удалось открыть форму настроек: " & ex.Message)
+                UiHelper.ErrorBox(owner, "Не удалось открыть форму настроек.", ex)
             End Try
         End Sub
 
@@ -47,7 +47,7 @@ Namespace UI
 
                 UiHelper.Info(owner, BuildSavedMessage(savedCount, savedPaths))
             Catch ex As Exception
-                UiHelper.ErrorBox(owner, "Произошла ошибка: " & ex.Message)
+                UiHelper.ErrorBox(owner, "Произошла ошибка.", ex)
             End Try
         End Sub
 
@@ -78,7 +78,7 @@ Namespace UI
                     form.ShowDialog(owner)
                 End Using
             Catch ex As Exception
-                UiHelper.ErrorBox(owner, "Не удалось открыть форму настроек: " & ex.Message)
+                UiHelper.ErrorBox(owner, "Не удалось открыть форму настроек.", ex)
             End Try
         End Sub
 
@@ -91,7 +91,7 @@ Namespace UI
                     End If
                 End Using
             Catch ex As Exception
-                UiHelper.ErrorBox(owner, "Не удалось открыть форму правил сортировки: " & ex.Message)
+                UiHelper.ErrorBox(owner, "Не удалось открыть форму правил сортировки.", ex)
             End Try
         End Sub
 
@@ -105,7 +105,7 @@ Namespace UI
                     ShowIncompleteNotice(owner)
                 End If
             Catch ex As Exception
-                UiHelper.ErrorBox(owner, "Не удалось изменить режим автосохранения: " & ex.Message)
+                UiHelper.ErrorBox(owner, "Не удалось изменить режим автосохранения.", ex)
             End Try
         End Sub
 
@@ -117,7 +117,7 @@ Namespace UI
                     UiHelper.Warn(owner, AutoSaveEngine.LastFailureMessage)
                 End If
             Catch ex As Exception
-                UiHelper.ErrorBox(owner, "Не удалось запустить автосохранение: " & ex.Message)
+                UiHelper.ErrorBox(owner, "Не удалось запустить автосохранение.", ex)
             End Try
         End Sub
 
@@ -154,7 +154,7 @@ Namespace UI
 
                 AutoSaveEngine.SetIntervalSeconds(seconds)
             Catch ex As Exception
-                UiHelper.ErrorBox(owner, "Не удалось изменить интервал: " & ex.Message)
+                UiHelper.ErrorBox(owner, "Не удалось изменить интервал.", ex)
             End Try
         End Sub
 
@@ -181,7 +181,7 @@ Namespace UI
 
                 AutoSaveEngine.SetLookbackSeconds(seconds)
             Catch ex As Exception
-                UiHelper.ErrorBox(owner, "Не удалось изменить период: " & ex.Message)
+                UiHelper.ErrorBox(owner, "Не удалось изменить период.", ex)
             End Try
         End Sub
 
@@ -189,7 +189,7 @@ Namespace UI
             Try
                 AutoSaveEngine.ToggleLogging()
             Catch ex As Exception
-                UiHelper.ErrorBox(owner, "Не удалось изменить настройку логирования: " & ex.Message)
+                UiHelper.ErrorBox(owner, "Не удалось изменить настройку логирования.", ex)
             End Try
         End Sub
 

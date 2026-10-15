@@ -384,7 +384,7 @@ Namespace UI
                     End If
                 End Using
             Catch ex As Exception
-                UiHelper.ErrorBox(Me, "Не удалось получить список папок Outlook: " & ex.Message)
+                UiHelper.ErrorBox(Me, "Не удалось получить список папок Outlook.", ex)
             End Try
         End Sub
 
@@ -399,7 +399,7 @@ Namespace UI
 
                 _txtSourceFolder.Text = folderPath
             Catch ex As Exception
-                UiHelper.ErrorBox(Me, "Не удалось взять текущую папку Outlook: " & ex.Message)
+                UiHelper.ErrorBox(Me, "Не удалось взять текущую папку Outlook.", ex)
             End Try
         End Sub
 
@@ -413,7 +413,7 @@ Namespace UI
                 Me.DialogResult = System.Windows.Forms.DialogResult.OK
                 Close()
             Catch ex As Exception
-                UiHelper.ErrorBox(Me, "Не удалось сохранить правила: " & ex.Message)
+                UiHelper.ErrorBox(Me, "Не удалось сохранить правила.", ex)
             End Try
         End Sub
 

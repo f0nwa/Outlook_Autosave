@@ -44,6 +44,12 @@ Namespace UI
             MessageBox.Show(owner, text, AppTitle, MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Sub
 
+        ''' <summary>Показывает пользователю общее сообщение; подробности исключения пишутся только в Trace.</summary>
+        Friend Sub ErrorBox(owner As IWin32Window, text As String, ex As Exception)
+            Trace.WriteLine("OutlookAutosave: " & text & " " & ex.ToString())
+            ErrorBox(owner, text)
+        End Sub
+
         Friend Function Confirm(owner As IWin32Window, text As String, caption As String) As Boolean
             Return MessageBox.Show(owner, text, caption, MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) = System.Windows.Forms.DialogResult.Yes
         End Function
